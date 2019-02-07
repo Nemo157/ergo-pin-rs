@@ -72,6 +72,46 @@ impl Fold for Visitor {
             syn::fold::fold_expr(self, expr)
         }
     }
+
+    fn fold_expr_while(&mut self, expr: syn::ExprWhile) -> syn::ExprWhile {
+        syn::ExprWhile {
+            attrs: expr.attrs,
+            label: expr.label,
+            while_token: expr.while_token,
+            cond: Box::new(
+                if let syn::Expr::Let(cond) = *expr.cond {
+                    syn::ExprLet {
+                        attrs: cond.attrs,
+                        let_token: cond.let_token,
+                        pats: cond.pats,
+                        eq_token: cond.eq_token,
+                        expr: Box::new(syn::ExprBlock {
+                            attrs: vec![],
+                            label: None,
+                            block: self.fold_block(syn::Block {
+                                brace_token: syn::token::Brace {
+                                    span: proc_macro2::Span::call_site(),
+                                },
+                                stmts: vec![syn::Stmt::Expr(*cond.expr)],
+                            }),
+                        }.into()),
+                    }.into()
+                } else {
+                    syn::ExprBlock {
+                        attrs: vec![],
+                        label: None,
+                        block: self.fold_block(syn::Block {
+                            brace_token: syn::token::Brace {
+                                span: proc_macro2::Span::call_site(),
+                            },
+                            stmts: vec![syn::Stmt::Expr(*expr.cond)],
+                        }),
+                    }.into()
+                }
+            ),
+            body: self.fold_block(expr.body),
+        }
+    }
 }
 
 /// # Examples
