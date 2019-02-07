@@ -6,9 +6,15 @@
 
 `ergo-pin` exports a single proc-macro-attribute `#[ergo_pin]` that can be applied to a
 function/block/`tt`-accepting-macro-invocation to provide the "magical" `pin!`
-within the scope. This `pin!` macro is equivalent to a magical function `fn
-pin!<T>(t: T) -> Pin<&mut T>`, it will take in any value and return a `Pin<&mut
-_>` of the value.
+within the scope. You can consider this `pin!` macro equivalent to a function
+with the signature:
+
+```rust
+extern "bla̴ck̀ mag̸ic͘" fn pin!<T>(t: T) -> Pin<&'local mut T>;
+```
+
+it will take in any value and return a `Pin<&mut _>` of the value, with the
+correct local stack lifetime.
 
 ## Internals
 
