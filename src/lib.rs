@@ -55,10 +55,10 @@ impl Fold for Visitor {
     fn fold_expr(&mut self, expr: syn::Expr) -> syn::Expr {
         let pin = syn::Ident::new("pin", proc_macro2::Span::call_site());
         if let syn::Expr::Macro(expr) = expr {
-            if expr.mac.path.is_ident(pin) {
+            if expr.mac.path.is_ident(&pin) {
                 let ident = self.gen_ident();
                 self.pinned
-                    .push((ident.clone(), syn::parse(expr.mac.tts.into()).unwrap()));
+                    .push((ident.clone(), syn::parse(expr.mac.tokens.into()).unwrap()));
                 return syn::ExprPath {
                     attrs: vec![],
                     qself: None,
@@ -83,7 +83,7 @@ impl Fold for Visitor {
                     syn::ExprLet {
                         attrs: cond.attrs,
                         let_token: cond.let_token,
-                        pats: cond.pats,
+                        pat: cond.pat,
                         eq_token: cond.eq_token,
                         expr: Box::new(syn::ExprBlock {
                             attrs: vec![],
@@ -181,17 +181,17 @@ pub fn ergo_pin(
         path,
         bang_token,
         delimiter,
-        tts,
+        tokens,
     }) = syn::parse::<syn::Macro>(code.clone())
     {
-        if let Ok(block) = syn::parse::<syn::Block>(quote!({ #tts }).into()) {
+        if let Ok(block) = syn::parse::<syn::Block>(quote!({ #tokens }).into()) {
             let block = Visitor::new().fold_block(block);
-            let tts = block.stmts.into_iter().map(|stmt| quote!(#stmt)).collect();
+            let tokens = block.stmts.into_iter().map(|stmt| quote!(#stmt)).collect();
             let mac = syn::Macro {
                 path,
                 bang_token,
                 delimiter,
-                tts,
+                tokens,
             };
             return mac.into_token_stream().into();
         }
