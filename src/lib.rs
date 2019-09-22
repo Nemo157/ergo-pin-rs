@@ -178,34 +178,32 @@ impl Fold for Visitor {
             attrs: expr.attrs,
             label: expr.label,
             while_token: expr.while_token,
-            cond: Box::new(
-                if let syn::Expr::Let(cond) = *expr.cond {
-                    syn::Expr::Let(syn::ExprLet {
-                        expr: Box::new(syn::Expr::Block(syn::ExprBlock {
-                            attrs: vec![],
-                            label: None,
-                            block: self.fold_block(syn::Block {
-                                brace_token: syn::token::Brace {
-                                    span: proc_macro2::Span::call_site(),
-                                },
-                                stmts: vec![syn::Stmt::Expr(*cond.expr)],
-                            }),
-                        })),
-                        ..cond
-                    })
-                } else {
-                    syn::Expr::Block(syn::ExprBlock {
+            cond: Box::new(if let syn::Expr::Let(cond) = *expr.cond {
+                syn::Expr::Let(syn::ExprLet {
+                    expr: Box::new(syn::Expr::Block(syn::ExprBlock {
                         attrs: vec![],
                         label: None,
                         block: self.fold_block(syn::Block {
                             brace_token: syn::token::Brace {
                                 span: proc_macro2::Span::call_site(),
                             },
-                            stmts: vec![syn::Stmt::Expr(*expr.cond)],
+                            stmts: vec![syn::Stmt::Expr(*cond.expr)],
                         }),
-                    })
-                }
-            ),
+                    })),
+                    ..cond
+                })
+            } else {
+                syn::Expr::Block(syn::ExprBlock {
+                    attrs: vec![],
+                    label: None,
+                    block: self.fold_block(syn::Block {
+                        brace_token: syn::token::Brace {
+                            span: proc_macro2::Span::call_site(),
+                        },
+                        stmts: vec![syn::Stmt::Expr(*expr.cond)],
+                    }),
+                })
+            }),
             body: self.fold_block(expr.body),
         }
     }
