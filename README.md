@@ -48,3 +48,23 @@ with the local variable used.
 Since this requires re-writing code outside the macro this can't be implemented
 by as a normal `pin!` macro, which is why the main entrypoint is the
 `#[ergo_pin]` attribute.
+
+## Rust Version Policy
+
+This crate only supports the current stable version of Rust, patch releases may
+use new features at any time.
+
+## License
+
+Licensed under either of
+
+ * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you shall be dual licensed as above, without any
+additional terms or conditions.

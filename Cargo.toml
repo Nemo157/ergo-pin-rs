@@ -3,11 +3,26 @@ name = "ergo-pin"
 version = "0.1.0"
 authors = ["Wim Looman <wim@nemo157.com>"]
 edition = "2018"
+description = "Ergonomic stack pinning"
+repository = "https://github.com/Nemo157/ergo-pin-rs"
+readme = "README.md"
+keywords = ["pin"]
+license = "MIT/Apache-2.0"
 
 [lib]
 proc-macro = true
 
+[features]
+# Internal testing feature
+nightly-tests = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
-syn = { version = "0.15.26", features = ["extra-traits", "fold", "full"] }
-quote = "0.6.11"
-proc-macro2 = "0.4.27"
+syn = { version = "1.0.5", default-features = false, features = ["parsing", "fold", "proc-macro", "full", "printing"] }
+quote = { version = "1.0.2", default-features = false }
+proc-macro2 = { version = "1.0.3", default-features = false }
+
+[dev-dependencies]
+syn = { version = "1.0.5", default-features = false, features = ["extra-traits"] }
