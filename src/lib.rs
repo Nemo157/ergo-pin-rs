@@ -1,3 +1,104 @@
+//! <p align="center"><i>Immobilis ergo pin</i></p>
+//!
+//! **Ergo**nomic stack **pin**ning for Rust.
+//!
+//! `ergo-pin` exports a single proc-macro-attribute `#[ergo_pin]` that can be applied to a
+//! item/block/`tt`-accepting-macro-invocation to provide the "magical" `pin!`
+//! within the scope. You can consider this `pin!` macro equivalent to a function
+//! with the signature:
+//!
+//! ```ignore
+//! extern "bla̴ck̀ mag̸ic͘" fn pin!<T>(t: T) -> Pin<&'local mut T>;
+//! ```
+//!
+//! it will take in any value and return a `Pin<&mut _>` of the value, with the
+//! correct local stack lifetime.
+//!
+//! # Examples
+//!
+//! ## Pin values inside functions
+//!
+//! ```rust
+//! #![feature(generators, generator_trait)]
+//!
+//! use core::ops::{Generator, GeneratorState};
+//! use ergo_pin::ergo_pin;
+//!
+//! #[ergo_pin]
+//! fn foo() -> GeneratorState<usize, ()> {
+//!     pin!(static || { yield 5 }).resume()
+//! }
+//!
+//! assert_eq!(foo(), GeneratorState::Yielded(5));
+//! ```
+//!
+//! ## Pin values in blocks
+//!
+//! ```rust
+//! #![feature(generators, generator_trait, stmt_expr_attributes, proc_macro_hygiene)]
+//!
+//! use core::ops::{Generator, GeneratorState};
+//! use ergo_pin::ergo_pin;
+//!
+//! fn foo() -> GeneratorState<usize, ()> {
+//!     #[ergo_pin] {
+//!         pin!(static || { yield 5 }).resume()
+//!     }
+//! }
+//!
+//! assert_eq!(foo(), GeneratorState::Yielded(5));
+//! ```
+//!
+//! ## Pin values in other macros that accept normal Rust code
+//!
+//! ```rust
+//! #![feature(generators, generator_trait, proc_macro_hygiene)]
+//!
+//! use core::ops::{Generator, GeneratorState};
+//! use ergo_pin::ergo_pin;
+//!
+//! macro_rules! bar {
+//!     ($($tokens:tt)+) => { $($tokens)+ };
+//! }
+//!
+//! fn foo() -> GeneratorState<usize, ()> {
+//!     #[ergo_pin]
+//!     bar! {
+//!         pin!(static || { yield 5 }).resume()
+//!     }
+//! }
+//!
+//! assert_eq!(foo(), GeneratorState::Yielded(5));
+//! ```
+//!
+//! ## Pin values inside any function of an impl
+//!
+//! (Note: this does _not_ descend into macros of the inner code as they may not be using normal
+//! Rust code syntax.)
+//!
+//! ```rust
+//! #![feature(generators, generator_trait)]
+//!
+//! use core::ops::{Generator, GeneratorState};
+//! use ergo_pin::ergo_pin;
+//!
+//! struct Foo;
+//!
+//! #[ergo_pin]
+//! impl Foo {
+//!     fn foo() -> GeneratorState<usize, ()> {
+//!         pin!(static || { yield 5 }).resume()
+//!     }
+//!
+//!     fn bar() -> GeneratorState<usize, ()> {
+//!         pin!(static || { yield 10 }).resume()
+//!     }
+//! }
+//!
+//! assert_eq!(Foo::foo(), GeneratorState::Yielded(5));
+//! assert_eq!(Foo::bar(), GeneratorState::Yielded(10));
+//! ```
+
 extern crate proc_macro;
 
 use quote::{quote, ToTokens};
@@ -55,16 +156,15 @@ impl Fold for Visitor {
     fn fold_expr(&mut self, expr: syn::Expr) -> syn::Expr {
         let pin = syn::Ident::new("pin", proc_macro2::Span::call_site());
         if let syn::Expr::Macro(expr) = expr {
-            if expr.mac.path.is_ident(pin) {
+            if expr.mac.path.is_ident(&pin) {
                 let ident = self.gen_ident();
                 self.pinned
-                    .push((ident.clone(), syn::parse(expr.mac.tts.into()).unwrap()));
-                return syn::ExprPath {
+                    .push((ident.clone(), syn::parse(expr.mac.tokens.into()).unwrap()));
+                syn::Expr::Path(syn::ExprPath {
                     attrs: vec![],
                     qself: None,
                     path: ident.into(),
-                }
-                .into();
+                })
             } else {
                 syn::fold::fold_expr_macro(self, expr).into()
             }
@@ -80,12 +180,8 @@ impl Fold for Visitor {
             while_token: expr.while_token,
             cond: Box::new(
                 if let syn::Expr::Let(cond) = *expr.cond {
-                    syn::ExprLet {
-                        attrs: cond.attrs,
-                        let_token: cond.let_token,
-                        pats: cond.pats,
-                        eq_token: cond.eq_token,
-                        expr: Box::new(syn::ExprBlock {
+                    syn::Expr::Let(syn::ExprLet {
+                        expr: Box::new(syn::Expr::Block(syn::ExprBlock {
                             attrs: vec![],
                             label: None,
                             block: self.fold_block(syn::Block {
@@ -94,10 +190,11 @@ impl Fold for Visitor {
                                 },
                                 stmts: vec![syn::Stmt::Expr(*cond.expr)],
                             }),
-                        }.into()),
-                    }.into()
+                        })),
+                        ..cond
+                    })
                 } else {
-                    syn::ExprBlock {
+                    syn::Expr::Block(syn::ExprBlock {
                         attrs: vec![],
                         label: None,
                         block: self.fold_block(syn::Block {
@@ -106,7 +203,7 @@ impl Fold for Visitor {
                             },
                             stmts: vec![syn::Stmt::Expr(*expr.cond)],
                         }),
-                    }.into()
+                    })
                 }
             ),
             body: self.fold_block(expr.body),
@@ -114,87 +211,29 @@ impl Fold for Visitor {
     }
 }
 
-/// # Examples
-///
-/// ```rust
-/// #![feature(generators, generator_trait)]
-///
-/// use core::ops::{Generator, GeneratorState};
-/// use ergo_pin::ergo_pin;
-///
-/// #[ergo_pin]
-/// fn foo() -> GeneratorState<usize, ()> {
-///     pin!(static || { yield 5 }).resume()
-/// }
-///
-/// assert_eq!(foo(), GeneratorState::Yielded(5));
-/// ```
-///
-/// ```rust
-/// #![feature(generators, generator_trait, stmt_expr_attributes, proc_macro_hygiene)]
-///
-/// use core::ops::{Generator, GeneratorState};
-/// use ergo_pin::ergo_pin;
-///
-/// fn foo() -> GeneratorState<usize, ()> {
-///     #[ergo_pin] {
-///         pin!(static || { yield 5 }).resume()
-///     }
-/// }
-///
-/// assert_eq!(foo(), GeneratorState::Yielded(5));
-/// ```
-///
-/// ```rust
-/// #![feature(generators, generator_trait, proc_macro_hygiene)]
-///
-/// use core::ops::{Generator, GeneratorState};
-/// use ergo_pin::ergo_pin;
-///
-/// macro_rules! bar {
-///     ($($tts:tt)+) => { $($tts)+ };
-/// }
-///
-/// fn foo() -> GeneratorState<usize, ()> {
-///     #[ergo_pin]
-///     bar! {
-///         pin!(static || { yield 5 }).resume()
-///     }
-/// }
-///
-/// assert_eq!(foo(), GeneratorState::Yielded(5));
-/// ```
+/// The main attribute, see crate level docs for details.
 #[proc_macro_attribute]
 pub fn ergo_pin(
     _attrs: proc_macro::TokenStream,
     code: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    if let Ok(fun) = syn::parse::<syn::ItemFn>(code.clone()) {
-        return Visitor::new().fold_item_fn(fun).into_token_stream().into();
+    let mut visitor = Visitor::new();
+
+    if let Ok(mac) = syn::parse::<syn::Macro>(code.clone()) {
+        let tokens = mac.tokens;
+        if let Ok(block) = syn::parse::<syn::Block>(quote!({ #tokens }).into()) {
+            let block = visitor.fold_block(block);
+            let tokens = block.stmts.into_iter().map(|stmt| quote!(#stmt)).collect();
+            return syn::Macro { tokens, ..mac }.into_token_stream().into();
+        }
+    }
+
+    if let Ok(item) = syn::parse::<syn::Item>(code.clone()) {
+        return visitor.fold_item(item).into_token_stream().into();
     }
 
     if let Ok(block) = syn::parse::<syn::Block>(code.clone()) {
-        return Visitor::new().fold_block(block).into_token_stream().into();
-    }
-
-    if let Ok(syn::Macro {
-        path,
-        bang_token,
-        delimiter,
-        tts,
-    }) = syn::parse::<syn::Macro>(code.clone())
-    {
-        if let Ok(block) = syn::parse::<syn::Block>(quote!({ #tts }).into()) {
-            let block = Visitor::new().fold_block(block);
-            let tts = block.stmts.into_iter().map(|stmt| quote!(#stmt)).collect();
-            let mac = syn::Macro {
-                path,
-                bang_token,
-                delimiter,
-                tts,
-            };
-            return mac.into_token_stream().into();
-        }
+        return visitor.fold_block(block).into_token_stream().into();
     }
 
     panic!("Could not parse input")
