@@ -12,6 +12,11 @@ matrix:
   include:
   - os: osx
 
+  - name: nightly-features
+    rust: nightly
+    script:
+    - cargo test --features nightly-tests
+
   - name: docs.rs
     rust: nightly
     script:

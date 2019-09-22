@@ -12,6 +12,10 @@ license = "MIT/Apache-2.0"
 [lib]
 proc-macro = true
 
+[features]
+# Internal testing feature
+nightly-tests = []
+
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]
 

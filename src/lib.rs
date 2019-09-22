@@ -19,56 +19,80 @@
 //! ## Pin values inside functions
 //!
 //! ```rust
-//! #![feature(generators, generator_trait)]
-//!
-//! use core::ops::{Generator, GeneratorState};
+//! use core::pin::Pin;
 //! use ergo_pin::ergo_pin;
 //!
-//! #[ergo_pin]
-//! fn foo() -> GeneratorState<usize, ()> {
-//!     pin!(static || { yield 5 }).resume()
-//! }
+//! struct Foo;
 //!
-//! assert_eq!(foo(), GeneratorState::Yielded(5));
-//! ```
-//!
-//! ## Pin values in blocks
-//!
-//! ```rust
-//! #![feature(generators, generator_trait, stmt_expr_attributes, proc_macro_hygiene)]
-//!
-//! use core::ops::{Generator, GeneratorState};
-//! use ergo_pin::ergo_pin;
-//!
-//! fn foo() -> GeneratorState<usize, ()> {
-//!     #[ergo_pin] {
-//!         pin!(static || { yield 5 }).resume()
+//! impl Foo {
+//!     fn foo(self: Pin<&mut Self>) -> usize {
+//!         5
 //!     }
 //! }
 //!
-//! assert_eq!(foo(), GeneratorState::Yielded(5));
+//! #[ergo_pin]
+//! fn foo() -> usize {
+//!     pin!(Foo).foo()
+//! }
+//!
+//! assert_eq!(foo(), 5);
 //! ```
 //!
-//! ## Pin values in other macros that accept normal Rust code
+//! ## Pin values in blocks (requires unstable features)
 //!
-//! ```rust
-//! #![feature(generators, generator_trait, proc_macro_hygiene)]
+#![cfg_attr(feature = "nightly-tests", doc = "```rust")]
+#![cfg_attr(not(feature = "nightly-tests"), doc = "```ignore")]
+//! #![feature(stmt_expr_attributes, proc_macro_hygiene)]
 //!
-//! use core::ops::{Generator, GeneratorState};
+//! use core::pin::Pin;
 //! use ergo_pin::ergo_pin;
+//!
+//! struct Foo;
+//!
+//! impl Foo {
+//!     fn foo(self: Pin<&mut Self>) -> usize {
+//!         5
+//!     }
+//! }
+//!
+//! fn foo() -> usize {
+//!     #[ergo_pin] {
+//!         pin!(Foo).foo()
+//!     }
+//! }
+//!
+//! assert_eq!(foo(), 5);
+//! ```
+//!
+//! ## Pin values in other macros that accept normal Rust code (requires unstable features)
+//!
+#![cfg_attr(feature = "nightly-tests", doc = "```rust")]
+#![cfg_attr(not(feature = "nightly-tests"), doc = "```ignore")]
+//! #![feature(proc_macro_hygiene)]
+//!
+//! use core::pin::Pin;
+//! use ergo_pin::ergo_pin;
+//!
+//! struct Foo;
+//!
+//! impl Foo {
+//!     fn foo(self: Pin<&mut Self>) -> usize {
+//!         5
+//!     }
+//! }
 //!
 //! macro_rules! bar {
 //!     ($($tokens:tt)+) => { $($tokens)+ };
 //! }
 //!
-//! fn foo() -> GeneratorState<usize, ()> {
+//! fn foo() -> usize {
 //!     #[ergo_pin]
 //!     bar! {
-//!         pin!(static || { yield 5 }).resume()
+//!         pin!(Foo).foo()
 //!     }
 //! }
 //!
-//! assert_eq!(foo(), GeneratorState::Yielded(5));
+//! assert_eq!(foo(), 5);
 //! ```
 //!
 //! ## Pin values inside any function of an impl
@@ -77,26 +101,27 @@
 //! Rust code syntax.)
 //!
 //! ```rust
-//! #![feature(generators, generator_trait)]
-//!
-//! use core::ops::{Generator, GeneratorState};
+//! use core::pin::Pin;
 //! use ergo_pin::ergo_pin;
 //!
 //! struct Foo;
 //!
-//! #[ergo_pin]
 //! impl Foo {
-//!     fn foo() -> GeneratorState<usize, ()> {
-//!         pin!(static || { yield 5 }).resume()
-//!     }
-//!
-//!     fn bar() -> GeneratorState<usize, ()> {
-//!         pin!(static || { yield 10 }).resume()
+//!     fn foo(self: Pin<&mut Self>) -> usize {
+//!         5
 //!     }
 //! }
 //!
-//! assert_eq!(Foo::foo(), GeneratorState::Yielded(5));
-//! assert_eq!(Foo::bar(), GeneratorState::Yielded(10));
+//! struct Bar;
+//!
+//! #[ergo_pin]
+//! impl Bar {
+//!     fn bar() -> usize {
+//!         pin!(Foo).foo()
+//!     }
+//! }
+//!
+//! assert_eq!(Bar::bar(), 5);
 //! ```
 
 extern crate proc_macro;

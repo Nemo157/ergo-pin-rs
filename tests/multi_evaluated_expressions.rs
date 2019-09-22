@@ -1,30 +1,32 @@
-#![feature(generators, generator_trait)]
-
-use core::ops::{Generator, GeneratorState};
+use core::pin::Pin;
 use ergo_pin::ergo_pin;
+
+struct LessThan5(usize);
+
+impl LessThan5 {
+    fn check(self: Pin<&mut Self>) -> bool {
+        self.0 < 5
+    }
+}
 
 #[test]
 fn multi_evaluated_expressions() {
-    fn less_than_5(i: usize) -> impl Generator<Yield = bool, Return = ()> {
-        static move || yield i < 5
-    }
-
     #[ergo_pin]
     fn count_to_5() -> usize {
         let mut count = 0;
-        while pin!(less_than_5(count)).resume() == GeneratorState::Yielded(true) {
+        while pin!(LessThan5(count)).check() {
             count += 1;
         }
-        return count;
+        count
     }
 
     #[ergo_pin]
     fn count_to_6() -> usize {
         let mut count = 0;
-        while let GeneratorState::Yielded(true) = pin!(less_than_5(count)).resume() {
+        while let true = pin!(LessThan5(count)).check() {
             count += 1;
         }
-        return count + 1;
+        count + 1
     }
 
     assert_eq!(count_to_5(), 5);
