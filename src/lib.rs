@@ -179,9 +179,8 @@ impl Fold for Visitor {
     }
 
     fn fold_expr(&mut self, expr: syn::Expr) -> syn::Expr {
-        let pin = syn::Ident::new("pin", proc_macro2::Span::call_site());
         if let syn::Expr::Macro(expr) = expr {
-            if expr.mac.path.is_ident(&pin) {
+            if expr.mac.path.is_ident("pin") {
                 let ident = self.gen_ident();
                 self.pinned
                     .push((ident.clone(), syn::parse(expr.mac.tokens.into()).unwrap()));
