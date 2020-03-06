@@ -254,7 +254,7 @@ pub fn ergo_pin(
         return visitor.fold_item(item).into_token_stream().into();
     }
 
-    if let Ok(block) = syn::parse::<syn::Block>(code.clone()) {
+    if let Ok(block) = syn::parse::<syn::Block>(code) {
         return visitor.fold_block(block).into_token_stream().into();
     }
 
